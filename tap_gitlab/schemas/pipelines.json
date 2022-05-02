@@ -1,0 +1,72 @@
+{
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": ["null", "integer"]
+        },
+        "iid": {
+            "type": ["null", "integer"]
+        },
+        "project_id": {
+            "type": ["null", "integer"]
+        },
+        "status": {
+            "type": ["null", "string"]
+        },
+        "ref": {
+            "type": ["null", "string"]
+        },
+        "sha": {
+            "type": ["null", "string"]
+        },
+        "before_sha": {
+            "type": ["null", "string"]
+        },
+        "yaml_errors": {
+            "type": ["null", "string"]
+        },
+        "user": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": ["null", "string"]
+                },
+                "usernname": {
+                    "type": ["null", "string"]
+                },
+                "id": {
+                    "type": ["null", "integer"]
+                }
+            }
+        },
+        "updated_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "started_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "finished_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "committed_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "duration": {
+            "type": ["null", "number"]
+        },
+        "queued_duration": {
+            "type": ["null", "number"]
+        },
+        "coverage": {
+            "type": ["null", "string"]
+        }
+    }
+}
