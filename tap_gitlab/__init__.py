@@ -67,6 +67,11 @@ RESOURCES = {
         'schema': load_schema('groups'),
         'key_properties': ['id'],
     },
+    'deployments': {
+        'url': '/projects/{}/deployments',
+        'schema': load_schema('deployments'),
+        'key_properties': ['id'],
+    },
 }
 
 
@@ -195,6 +200,15 @@ def sync_users(project):
             project["users"].append(row["id"])
             singer.write_record("users", transformed_row, time_extracted=utils.now())
 
+def sync_deployments(project):
+    url = get_url("deployments", project['id'])
+    project["deployments"] = []
+    with Transformer(pre_hook=format_timestamp) as transformer:
+        for row in gen_request(url):
+            transformed_row = transformer.transform(row, RESOURCES["deployments"]["schema"])
+            project["deployments"].append(row["id"])
+            singer.write_record("deployments", transformed_row, time_extracted=utils.now())
+
 
 def sync_group(gid, pids):
     url = CONFIG['api_url'] + RESOURCES["groups"]['url'].format(gid)
@@ -246,6 +260,7 @@ def sync_project(pid):
         sync_issues(project)
         sync_milestones(project)
         sync_users(project)
+        sync_deployments(project)
 
         singer.write_record("projects", project, time_extracted=time_extracted)
         utils.update_state(STATE, state_key, last_activity_at)

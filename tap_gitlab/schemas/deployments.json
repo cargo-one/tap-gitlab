@@ -1,0 +1,154 @@
+{
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": ["null", "integer"]
+        },
+        "iid": {
+            "type": ["null", "integer"]
+        },
+        "ref": {
+            "type": ["null", "string"]
+        },
+        "sha": {
+            "type": ["null", "string"]
+        },
+        "status": {
+            "type": ["null", "string"]
+        },
+        "updated_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "user": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": ["null", "string"]
+                },
+                "usernname": {
+                    "type": ["null", "string"]
+                },
+                "id": {
+                    "type": ["null", "integer"]
+                }
+            }
+        },
+        "environment": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": ["null", "string"]
+                },
+                "external_url": {
+                    "type": ["null", "string"]
+                },
+                "id": {
+                    "type": ["null", "integer"]
+                }
+            }
+        },
+        "deployable": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": ["null", "integer"]
+                },
+                "status": {
+                    "type": ["null", "string"]
+                },
+                "stage": {
+                    "type": ["null", "string"]
+                },
+                "name": {
+                    "type": ["null", "string"]
+                },
+                "ref": {
+                    "type": ["null", "string"]
+                },
+                "coverage": {
+                    "type": ["null", "string"]
+                },
+                "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "started_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "finished_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "user": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": ["null", "integer"]
+                        },
+                        "name": {
+                            "type": ["null", "string"]
+                        }
+                    }
+                },
+                "commit": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": ["null", "string"]
+                        },
+                        "title": {
+                            "type": ["null", "string"]
+                        },
+                        "author_name": {
+                            "type": ["null", "string"]
+                        },
+                        "author_email": {
+                            "type": ["null", "string"]
+                        },
+                        "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "message": {
+                            "type": ["null", "string"]
+                        }
+                    }
+                },
+                "pipeline": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": ["null", "integer"]
+                        },
+                        "ref": {
+                            "type": ["null", "string"]
+                        },
+                        "sha": {
+                            "type": ["null", "string"]
+                        },
+                        "status": {
+                            "type": ["null", "string"]
+                        },
+                        "updated_at": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "web_url": {
+                            "type": ["null", "string"]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
