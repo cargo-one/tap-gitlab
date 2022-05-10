@@ -77,13 +77,11 @@
                     "type": "string",
                     "format": "date-time"
                 },
-                "started_at": {
-                    "type": "string",
-                    "format": "date-time"
-                },
                 "finished_at": {
-                    "type": "string",
-                    "format": "date-time"
+                    "type": ["null", "string"]
+                },
+                "started_at": {
+                    "type": ["null", "string"]
                 },
                 "user": {
                     "type": "object",
