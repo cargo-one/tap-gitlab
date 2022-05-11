@@ -84,11 +84,27 @@ LOGGER = singer.get_logger()
 SESSION = requests.Session()
 
 
+def get_date_filter_param(entity):
+    date_filtering = {
+        "branches": '',
+        "commits": "since",
+        "deployments": "updated_after",
+        "groups": '',
+        "issues": "created_after",
+        "milestones": '',
+        "pipelines": "updated_after",
+        "projects": "last_activity_after",
+        "users": '',
+    }
+
+    return f'?{date_filtering.get(entity)}={STATE.get(entity)}'
+
+
 def get_url(entity, id):
     if not isinstance(id, int):
         id = id.replace("/", "%2F")
 
-    return CONFIG['api_url'] + RESOURCES[entity]['url'].format(id)
+    return CONFIG['api_url'] + RESOURCES[entity]['url'].format(id) + get_date_filter_param(entity)
 
 
 def get_start(entity):
@@ -316,17 +332,7 @@ def do_sync():
 
 def main_impl():
     # TODO: Address properties that are required or not
-    # TODO: Add filter by date to possible entities
-    #       entity <filter or all by default>
-    #       branches all by default
-    #       commits since 
-    #       deployments updated_after
-    #       groups all by default
-    #       issues created_after
-    #       milestones all by default
-    #       pipelines updated_after
-    #       projects last_activity_after
-    #       users all by default
+
     args = utils.parse_args(["private_token", "projects", "start_date"])
 
     CONFIG.update(args.config)
