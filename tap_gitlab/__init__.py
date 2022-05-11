@@ -154,74 +154,87 @@ def flatten_id(item, target):
         item[target + '_id'] = None
 
 
+def is_entity_in_state(entity):
+    if STATE.get(entity):
+        return True
+    return False
+
+
 def sync_branches(project):
-    url = get_url("branches", project['id'])
-    with Transformer(pre_hook=format_timestamp) as transformer:
-        for row in gen_request(url):
-            row['project_id'] = project['id']
-            flatten_id(row, "commit")
-            transformed_row = transformer.transform(row, RESOURCES["branches"]["schema"])
-            singer.write_record("branches", transformed_row, time_extracted=utils.now())
+    if is_entity_in_state('branches'):
+        url = get_url("branches", project['id'])
+        with Transformer(pre_hook=format_timestamp) as transformer:
+            for row in gen_request(url):
+                row['project_id'] = project['id']
+                flatten_id(row, "commit")
+                transformed_row = transformer.transform(row, RESOURCES["branches"]["schema"])
+                singer.write_record("branches", transformed_row, time_extracted=utils.now())
 
 
 def sync_commits(project):
-    url = get_url("commits", project['id'])
-    with Transformer(pre_hook=format_timestamp) as transformer:
-        for row in gen_request(url):
-            row['project_id'] = project["id"]
-            transformed_row = transformer.transform(row, RESOURCES["commits"]["schema"])
-            singer.write_record("commits", transformed_row, time_extracted=utils.now())
+    if is_entity_in_state('commits'):
+        url = get_url("commits", project['id'])
+        with Transformer(pre_hook=format_timestamp) as transformer:
+            for row in gen_request(url):
+                row['project_id'] = project["id"]
+                transformed_row = transformer.transform(row, RESOURCES["commits"]["schema"])
+                singer.write_record("commits", transformed_row, time_extracted=utils.now())
 
 
 def sync_issues(project):
-    url = get_url("issues", project['id'])
-    with Transformer(pre_hook=format_timestamp) as transformer:
-        for row in gen_request(url):
-            flatten_id(row, "author")
-            flatten_id(row, "assignee")
-            flatten_id(row, "milestone")
-            transformed_row = transformer.transform(row, RESOURCES["issues"]["schema"])
+    if is_entity_in_state('issues'):
+        url = get_url("issues", project['id'])
+        with Transformer(pre_hook=format_timestamp) as transformer:
+            for row in gen_request(url):
+                flatten_id(row, "author")
+                flatten_id(row, "assignee")
+                flatten_id(row, "milestone")
+                transformed_row = transformer.transform(row, RESOURCES["issues"]["schema"])
 
-            if row["updated_at"] >= get_start("project_{}".format(project["id"])):
-                singer.write_record("issues", transformed_row, time_extracted=utils.now())
+                if row["updated_at"] >= get_start("project_{}".format(project["id"])):
+                    singer.write_record("issues", transformed_row, time_extracted=utils.now())
 
 
 def sync_milestones(entity, element="project"):
-    url = get_url(element + "_milestones", entity['id'])
+    if is_entity_in_state('milestones'):
+        url = get_url(element + "_milestones", entity['id'])
 
-    with Transformer(pre_hook=format_timestamp) as transformer:
-        for row in gen_request(url):
-            transformed_row = transformer.transform(row, RESOURCES[element + "_milestones"]["schema"])
+        with Transformer(pre_hook=format_timestamp) as transformer:
+            for row in gen_request(url):
+                transformed_row = transformer.transform(row, RESOURCES[element + "_milestones"]["schema"])
 
-            if row["updated_at"] >= get_start(element + "_{}".format(entity["id"])):
-                singer.write_record(element + "_milestones", transformed_row, time_extracted=utils.now())
+                if row["updated_at"] >= get_start(element + "_{}".format(entity["id"])):
+                    singer.write_record(element + "_milestones", transformed_row, time_extracted=utils.now())
 
 def sync_users(project):
-    url = get_url("users", project['id'])
-    project["users"] = []
-    with Transformer(pre_hook=format_timestamp) as transformer:
-        for row in gen_request(url):
-            transformed_row = transformer.transform(row, RESOURCES["users"]["schema"])
-            project["users"].append(row["id"])
-            singer.write_record("users", transformed_row, time_extracted=utils.now())
+    if is_entity_in_state('users'):
+        url = get_url("users", project['id'])
+        project["users"] = []
+        with Transformer(pre_hook=format_timestamp) as transformer:
+            for row in gen_request(url):
+                transformed_row = transformer.transform(row, RESOURCES["users"]["schema"])
+                project["users"].append(row["id"])
+                singer.write_record("users", transformed_row, time_extracted=utils.now())
 
 def sync_deployments(project):
-    url = get_url("deployments", project['id'])
-    project["deployments"] = []
-    with Transformer(pre_hook=format_timestamp) as transformer:
-        for row in gen_request(url):
-            transformed_row = transformer.transform(row, RESOURCES["deployments"]["schema"])
-            project["deployments"].append(row["id"])
-            singer.write_record("deployments", transformed_row, time_extracted=utils.now())
+    if is_entity_in_state('deployments'):
+        url = get_url("deployments", project['id'])
+        project["deployments"] = []
+        with Transformer(pre_hook=format_timestamp) as transformer:
+            for row in gen_request(url):
+                transformed_row = transformer.transform(row, RESOURCES["deployments"]["schema"])
+                project["deployments"].append(row["id"])
+                singer.write_record("deployments", transformed_row, time_extracted=utils.now())
 
 def sync_pipelines(project):
-    url = get_url("pipelines", project['id'])
-    project["pipelines"] = []
-    with Transformer(pre_hook=format_timestamp) as transformer:
-        for row in gen_request(url):
-            transformed_row = transformer.transform(row, RESOURCES["pipelines"]["schema"])
-            project["pipelines"].append(row["id"])
-            singer.write_record("pipelines", transformed_row, time_extracted=utils.now())
+    if is_entity_in_state('pipelines'):
+        url = get_url("pipelines", project['id'])
+        project["pipelines"] = []
+        with Transformer(pre_hook=format_timestamp) as transformer:
+            for row in gen_request(url):
+                transformed_row = transformer.transform(row, RESOURCES["pipelines"]["schema"])
+                project["pipelines"].append(row["id"])
+                singer.write_record("pipelines", transformed_row, time_extracted=utils.now())
 
 def sync_group(gid, pids):
     url = CONFIG['api_url'] + RESOURCES["groups"]['url'].format(gid)
@@ -303,6 +316,17 @@ def do_sync():
 
 def main_impl():
     # TODO: Address properties that are required or not
+    # TODO: Add filter by date to possible entities
+    #       entity <filter or all by default>
+    #       branches all by default
+    #       commits since 
+    #       deployments updated_after
+    #       groups all by default
+    #       issues created_after
+    #       milestones all by default
+    #       pipelines updated_after
+    #       projects last_activity_after
+    #       users all by default
     args = utils.parse_args(["private_token", "projects", "start_date"])
 
     CONFIG.update(args.config)
