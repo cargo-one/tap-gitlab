@@ -13,6 +13,9 @@
         "title": {
             "type": ["null", "string"]
         },
+        "first_parent": {
+            "type": ["null", "string"]
+        },
         "author_name": {
             "type": ["null", "string"]
         },
