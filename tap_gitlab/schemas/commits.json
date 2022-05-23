@@ -13,8 +13,18 @@
         "title": {
             "type": ["null", "string"]
         },
-        "first_parent": {
-            "type": ["null", "string"]
+        "parent_ids": {
+            "anyOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": ["null", "string"]
+                    }
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "author_name": {
             "type": ["null", "string"]
