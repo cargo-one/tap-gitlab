@@ -100,6 +100,7 @@ def get_date_filter_param(entity):
         "pipelines": "updated_after",
         "projects": "last_activity_after",
         "users": '',
+        "releases": '',
     }
 
     return f'?{date_filtering.get(entity)}={STATE.get(entity)}'
