@@ -77,6 +77,11 @@ RESOURCES = {
         'schema': load_schema('pipelines'),
         'key_properties': ['id'],
     },
+    'releases': {
+        'url': '/projects/{}/releases',
+        'schema': load_schema('releases'),
+        'key_properties': ['id'],
+    },
 }
 
 
@@ -252,6 +257,16 @@ def sync_pipelines(project):
                 project["pipelines"].append(row["id"])
                 singer.write_record("pipelines", transformed_row, time_extracted=utils.now())
 
+def sync_releases(project):
+    if is_entity_in_state('releases'):
+        url = get_url("releases", project['id'])
+        project["releases"] = []
+        with Transformer(pre_hook=format_timestamp) as transformer:
+            for row in gen_request(url):
+                transformed_row = transformer.transform(row, RESOURCES["releases"]["schema"])
+                project["releases"].append(row["id"])
+                singer.write_record("releases", transformed_row, time_extracted=utils.now())
+
 def sync_group(gid, pids):
     url = CONFIG['api_url'] + RESOURCES["groups"]['url'].format(gid)
 
@@ -304,6 +319,7 @@ def sync_project(pid):
         sync_users(project)
         sync_deployments(project)
         sync_pipelines(project)
+        sync_releases(project)
 
         singer.write_record("projects", project, time_extracted=time_extracted)
         utils.update_state(STATE, state_key, last_activity_at)
