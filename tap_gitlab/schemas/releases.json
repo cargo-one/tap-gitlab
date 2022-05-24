@@ -1,0 +1,55 @@
+{
+    "type": "object",
+    "properties": {
+        "tag_name": {
+            "type": ["null", "string"]
+        },
+        "name": {
+            "type": ["null", "string"]
+        },
+        "description": {
+            "type": ["null", "string"]
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "commit": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": ["null", "string"]
+                },
+                "title": {
+                    "type": ["null", "string"]
+                },
+                "author_name": {
+                    "type": ["null", "string"]
+                },
+                "author_email": {
+                    "type": ["null", "string"]
+                },
+                "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "message": {
+                    "type": ["null", "string"]
+                },
+                "parent_ids": {
+                    "anyOf": [
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}
