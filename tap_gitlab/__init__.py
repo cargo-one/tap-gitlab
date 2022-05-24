@@ -80,7 +80,7 @@ RESOURCES = {
     'releases': {
         'url': '/projects/{}/releases',
         'schema': load_schema('releases'),
-        'key_properties': ['id'],
+        'key_properties': ['tag_name'],
     },
 }
 
@@ -264,7 +264,7 @@ def sync_releases(project):
         with Transformer(pre_hook=format_timestamp) as transformer:
             for row in gen_request(url):
                 transformed_row = transformer.transform(row, RESOURCES["releases"]["schema"])
-                project["releases"].append(row["id"])
+                project["releases"].append(row["tag_name"])
                 singer.write_record("releases", transformed_row, time_extracted=utils.now())
 
 def sync_group(gid, pids):
