@@ -182,23 +182,26 @@ def is_entity_in_state(entity):
     return False
 
 
-def sync_branches(project):
+def sync_branches(project, extraction_time):
     if is_entity_in_state('branches'):
         url = get_url("branches", project['id'])
         with Transformer(pre_hook=format_timestamp) as transformer:
             for row in gen_request(url):
                 row['project_id'] = project['id']
                 flatten_id(row, "commit")
+                row['branch_id'] = '{}_{}_{}'.format(row['project_id'], row['name'], row['commit_id'])
+                row['extracted_at'] = extraction_time
                 transformed_row = transformer.transform(row, RESOURCES["branches"]["schema"])
                 singer.write_record("branches", transformed_row, time_extracted=utils.now())
 
 
-def sync_commits(project):
+def sync_commits(project, extraction_time):
     if is_entity_in_state('commits'):
         url = get_url("commits", project['id'])
         with Transformer(pre_hook=format_timestamp) as transformer:
             for row in gen_request(url):
                 row['project_id'] = project["id"]
+                row['extracted_at'] = extraction_time
                 transformed_row = transformer.transform(row, RESOURCES["commits"]["schema"])
                 singer.write_record("commits", transformed_row, time_extracted=utils.now())
 
@@ -228,6 +231,7 @@ def sync_milestones(entity, element="project"):
                 if row["updated_at"] >= get_start(element + "_{}".format(entity["id"])):
                     singer.write_record(element + "_milestones", transformed_row, time_extracted=utils.now())
 
+
 def sync_users(project):
     if is_entity_in_state('users'):
         url = get_url("users", project['id'])
@@ -237,6 +241,7 @@ def sync_users(project):
                 transformed_row = transformer.transform(row, RESOURCES["users"]["schema"])
                 project["users"].append(row["id"])
                 singer.write_record("users", transformed_row, time_extracted=utils.now())
+
 
 def sync_deployments(project):
     if is_entity_in_state('deployments'):
@@ -248,6 +253,7 @@ def sync_deployments(project):
                 project["deployments"].append(row["id"])
                 singer.write_record("deployments", transformed_row, time_extracted=utils.now())
 
+
 def sync_pipelines(project):
     if is_entity_in_state('pipelines'):
         url = get_url("pipelines", project['id'])
@@ -258,6 +264,7 @@ def sync_pipelines(project):
                 project["pipelines"].append(row["id"])
                 singer.write_record("pipelines", transformed_row, time_extracted=utils.now())
 
+
 def sync_releases(project):
     if is_entity_in_state('releases'):
         url = get_url("releases", project['id'])
@@ -267,6 +274,7 @@ def sync_releases(project):
                 transformed_row = transformer.transform(row, RESOURCES["releases"]["schema"])
                 project["releases"].append(row["tag_name"])
                 singer.write_record("releases", transformed_row, time_extracted=utils.now())
+
 
 def sync_group(gid, pids):
     url = CONFIG['api_url'] + RESOURCES["groups"]['url'].format(gid)
@@ -294,7 +302,7 @@ def sync_group(gid, pids):
 def sync_project(pid):
     url = get_url("projects", pid)
     data = request(url).json()
-    time_extracted = utils.now()
+    extraction_time = utils.now()
 
     with Transformer(pre_hook=format_timestamp) as transformer:
         flatten_id(data, "owner")
@@ -310,11 +318,9 @@ def sync_project(pid):
             "There is no last_activity_at or created_at field on project {}. This usually means I don't have access to the project."
             .format(project['id']))
 
-
     if project['last_activity_at'] >= get_start(state_key):
-
-        sync_branches(project)
-        sync_commits(project)
+        sync_branches(project, extraction_time)
+        sync_commits(project, extraction_time)
         sync_issues(project)
         sync_milestones(project)
         sync_users(project)
@@ -322,7 +328,7 @@ def sync_project(pid):
         sync_pipelines(project)
         sync_releases(project)
 
-        singer.write_record("projects", project, time_extracted=time_extracted)
+        singer.write_record("projects", project, time_extracted=extraction_time)
         utils.update_state(STATE, state_key, last_activity_at)
         singer.write_state(STATE)
 

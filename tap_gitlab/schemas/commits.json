@@ -47,6 +47,10 @@
         },
         "allow_failure": {
             "type": ["null", "boolean"]
+        },
+        "extracted_at": {
+            "type": "string",
+            "format": "date-time"
         }
     }
 }

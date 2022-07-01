@@ -1,6 +1,9 @@
 {
     "type": "object",
     "properties": {
+        "branch_id": {
+            "type": "string"
+        },
         "project_id": {
             "type": "integer"
         },
@@ -21,6 +24,10 @@
         },
         "commit_id": {
             "type": ["null", "string"]
+        },
+        "extracted_at": {
+            "type": "string",
+            "format": "date-time"
         }
     }
 }
