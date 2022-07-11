@@ -1,95 +1,132 @@
 #!/usr/bin/env python3
 
 import datetime
+import json
 import sys
 import os
+from pprint import pprint
+
+import pendulum
 import requests
 import singer
-from singer import Transformer, utils
+from singer import Transformer, utils, Schema, Catalog, CatalogEntry, write_bookmark
 
 import pytz
 import backoff
 from strict_rfc3339 import rfc3339_to_timestamp
 
 PER_PAGE = 100
-CONFIG = {
-    'api_url': "https://gitlab.com/api/v3",
-    'private_token': None,
-    'start_date': None,
-    'groups': ''
-}
+REQUIRED_CONFIG_KEYS = ["private_token", "start_date"]
 STATE = {}
+LOGGER = singer.get_logger()
+SESSION = requests.Session()
+
 
 def get_abs_path(path):
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), path)
 
-def load_schema(entity):
-    return utils.load_json(get_abs_path("schemas/{}.json".format(entity)))
 
-RESOURCES = {
+# def load_schema(entity):
+#     return utils.load_json(get_abs_path("schemas/{}.json".format(entity)))
+
+def load_schemas():
+    """ Load schemas from schemas folder """
+    schemas = {}
+    for filename in os.listdir(get_abs_path('schemas')):
+        path = get_abs_path('schemas') + '/' + filename
+        file_raw = filename.replace('.json', '')
+        with open(path) as file:
+            schemas[file_raw] = Schema.from_dict(json.load(file))
+    return schemas
+
+
+SCHEMAS = {
     'projects': {
         'url': '/projects/{}',
-        'schema': load_schema('projects'),
+        'replication_key': 'last_activity_at',
+        'replication_method': 'INCREMENTAL',
         'key_properties': ['id'],
     },
     'branches': {
         'url': '/projects/{}/repository/branches',
-        'schema': load_schema('branches'),
+        'replication_method': 'FULL',
         'key_properties': ['project_id', 'name'],
     },
     'commits': {
         'url': '/projects/{}/repository/commits',
-        'schema': load_schema('commits'),
+        'replication_key': 'created_at',
+        'replication_method': 'INCREMENTAL',
         'key_properties': ['id'],
     },
     'issues': {
         'url': '/projects/{}/issues',
-        'schema': load_schema('issues'),
-        'key_properties': ['id'],
-    },
-    'project_milestones': {
-        'url': '/projects/{}/milestones',
-        'schema': load_schema('milestones'),
-        'key_properties': ['id'],
-    },
-    'group_milestones': {
-        'url': '/groups/{}/milestones',
-        'schema': load_schema('milestones'),
+        'replication_key': 'updated_at',
+        'replication_method': 'INCREMENTAL',
         'key_properties': ['id'],
     },
     'users': {
         'url': '/projects/{}/users',
-        'schema': load_schema('users'),
+        'replication_method': 'FULL',
         'key_properties': ['id'],
     },
     'groups': {
         'url': '/groups/{}',
-        'schema': load_schema('groups'),
         'key_properties': ['id'],
     },
     'deployments': {
         'url': '/projects/{}/deployments',
-        'schema': load_schema('deployments'),
+        'replication_key': 'updated_at',
+        'replication_method': 'INCREMENTAL',
         'key_properties': ['id'],
     },
     'pipelines': {
         'url': '/projects/{}/pipelines',
-        'schema': load_schema('pipelines'),
+        'replication_key': 'updated_at',
+        'replication_method': 'INCREMENTAL',
         'key_properties': ['id'],
     },
     'releases': {
         'url': '/projects/{}/releases',
-        'schema': load_schema('releases'),
+        'replication_key': 'released_at',
+        'replication_method': 'INCREMENTAL',
         'key_properties': ['tag_name'],
     },
 }
 
 
-LOGGER = singer.get_logger()
-SESSION = requests.Session()
+def get_value(stream_id, key, default=None):
+    if stream_id not in SCHEMAS:
+        return default
+    if key not in SCHEMAS[stream_id]:
+        return default
+    return SCHEMAS[stream_id][key]
 
 
-def get_date_filter_param(entity):
+def discover():
+    raw_schemas = load_schemas()
+    streams = []
+    for stream_id, schema in raw_schemas.items():
+        stream_metadata = []
+        streams.append(
+            CatalogEntry(
+                tap_stream_id=stream_id,
+                stream=stream_id,
+                schema=schema,
+                key_properties=get_value(stream_id, 'key_properties', list()),
+                metadata=stream_metadata,
+                replication_key=get_value(stream_id, 'replication_key'),
+                is_view=None,
+                database=None,
+                table=None,
+                row_count=None,
+                stream_alias=None,
+                replication_method=get_value(stream_id, 'replication_method'),
+            )
+        )
+    return Catalog(streams)
+
+
+def get_date_filter_param(entity, fallback_date):
     date_filtering = {
         "branches": '',
         "commits": "since",
@@ -103,21 +140,28 @@ def get_date_filter_param(entity):
         "releases": '',
     }
 
-    return f'?{date_filtering.get(entity)}={STATE.get(entity)}'
+    dt = STATE.get(entity) or fallback_date
+
+    return f'?{date_filtering.get(entity)}={dt}'
 
 
-def get_url(entity, id):
+def get_url(config, entity, id, extract_from=None):
     if not isinstance(id, int):
         id = id.replace("/", "%2F")
 
-    return CONFIG['api_url'] + RESOURCES[entity]['url'].format(id) + get_date_filter_param(entity)
+    return config['api_url'] + SCHEMAS[entity]['url'].format(id) + get_date_filter_param(entity, extract_from)
 
 
-def get_start(entity):
+def get_start(config, entity):
     if entity not in STATE:
-        STATE[entity] = CONFIG['start_date']
+        STATE[entity] = config['start_date']
 
     return STATE[entity]
+
+
+def persist_state(filename, state):
+    with open(filename, 'w+') as f:
+        json.dump(state, f, indent=2)
 
 
 @backoff.on_exception(backoff.expo,
@@ -125,13 +169,13 @@ def get_start(entity):
                       max_tries=5,
                       giveup=lambda e: e.response is not None and 400 <= e.response.status_code < 500, # pylint: disable=line-too-long
                       factor=2)
-def request(url, params=None):
+def request(config, url, params=None):
     params = params or {}
-    params['private_token'] = CONFIG['private_token']
+    params['private_token'] = config['private_token']
 
     headers = {}
-    if 'user_agent' in CONFIG:
-        headers['User-Agent'] = CONFIG['user_agent']
+    if 'user_agent' in config:
+        headers['User-Agent'] = config['user_agent']
 
     req = requests.Request('GET', url, params=params, headers=headers).prepare()
     LOGGER.info("GET {}".format(req.url))
@@ -146,9 +190,9 @@ def request(url, params=None):
     return resp
 
 
-def gen_request(url):
+def gen_request(config, url):
     params = {'page': 1}
-    resp = request(url, params)
+    resp = request(config, url, params)
     last_page = int(resp.headers.get('X-Total-Pages', 1))
 
     for row in resp.json():
@@ -156,9 +200,10 @@ def gen_request(url):
 
     for page in range(2, last_page + 1):
         params['page'] = page
-        resp = request(url, params)
+        resp = request(config, url, params)
         for row in resp.json():
             yield row
+
 
 def format_timestamp(data, typ, schema):
     result = data
@@ -169,6 +214,7 @@ def format_timestamp(data, typ, schema):
 
     return result
 
+
 def flatten_id(item, target):
     if target in item and item[target] is not None:
         item[target + '_id'] = item.pop(target, {}).pop('id', None)
@@ -176,137 +222,121 @@ def flatten_id(item, target):
         item[target + '_id'] = None
 
 
-def is_entity_in_state(entity):
-    if STATE.get(entity):
-        return True
-    return False
-
-
-def sync_branches(project, extraction_time):
-    if is_entity_in_state('branches'):
-        url = get_url("branches", project['id'])
+def sync_branches(config, stream, project):
+    if stream.is_selected():
+        url = get_url(config, "branches", project['id'])
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
+            for row in gen_request(config, url):
                 row['project_id'] = project['id']
                 flatten_id(row, "commit")
                 row['branch_id'] = '{}_{}_{}'.format(row['project_id'], row['name'], row['commit_id'])
-                row['extracted_at'] = extraction_time
-                transformed_row = transformer.transform(row, RESOURCES["branches"]["schema"])
+                row['extracted_at'] = utils.strftime(utils.now())
+                transformed_row = transformer.transform(row, stream.schema.to_dict())
                 singer.write_record("branches", transformed_row, time_extracted=utils.now())
 
 
-def sync_commits(project, extraction_time):
-    if is_entity_in_state('commits'):
-        url = get_url("commits", project['id'])
+def sync_commits(config, stream, project):
+    if stream.is_selected():
+        extract_from = STATE.get(f'project_{project["id"]}') or config['start_date']
+        url = get_url(config, "commits", project['id'], extract_from)
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
+            for row in gen_request(config, url):
                 row['project_id'] = project["id"]
-                row['extracted_at'] = extraction_time
-                transformed_row = transformer.transform(row, RESOURCES["commits"]["schema"])
+                row['extracted_at'] = utils.strftime(utils.now())
+                transformed_row = transformer.transform(row, stream.schema.to_dict())
                 singer.write_record("commits", transformed_row, time_extracted=utils.now())
 
 
-def sync_issues(project):
-    if is_entity_in_state('issues'):
-        url = get_url("issues", project['id'])
+def sync_issues(config, stream, project):
+    if stream.is_selected():
+        extract_from = STATE.get(f'project_{project["id"]}') or config['start_date']
+        url = get_url(config, "issues", project['id'], extract_from)
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
+            for row in gen_request(config, url):
                 flatten_id(row, "author")
                 flatten_id(row, "assignee")
                 flatten_id(row, "milestone")
-                transformed_row = transformer.transform(row, RESOURCES["issues"]["schema"])
-
-                if row["updated_at"] >= get_start("project_{}".format(project["id"])):
-                    singer.write_record("issues", transformed_row, time_extracted=utils.now())
+                transformed_row = transformer.transform(row, stream.schema.to_dict())
+                singer.write_record("issues", transformed_row, time_extracted=utils.now())
 
 
-def sync_milestones(entity, element="project"):
-    if is_entity_in_state('milestones'):
-        url = get_url(element + "_milestones", entity['id'])
-
-        with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                transformed_row = transformer.transform(row, RESOURCES[element + "_milestones"]["schema"])
-
-                if row["updated_at"] >= get_start(element + "_{}".format(entity["id"])):
-                    singer.write_record(element + "_milestones", transformed_row, time_extracted=utils.now())
-
-
-def sync_users(project):
-    if is_entity_in_state('users'):
-        url = get_url("users", project['id'])
+def sync_users(config, stream, project):
+    if stream.is_selected():
+        url = get_url(config, "users", project['id'])
         project["users"] = []
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                transformed_row = transformer.transform(row, RESOURCES["users"]["schema"])
+            for row in gen_request(config, url):
+                transformed_row = transformer.transform(row, stream.schema.to_dict())
                 project["users"].append(row["id"])
                 singer.write_record("users", transformed_row, time_extracted=utils.now())
 
 
-def sync_deployments(project):
-    if is_entity_in_state('deployments'):
-        url = get_url("deployments", project['id'])
+def sync_deployments(config, stream, project):
+    if stream.is_selected():
+        extract_from = STATE.get(f'project_{project["id"]}') or config['start_date']
+        url = get_url(config, "deployments", project['id'], extract_from)
         project["deployments"] = []
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                transformed_row = transformer.transform(row, RESOURCES["deployments"]["schema"])
+            for row in gen_request(config, url):
+                transformed_row = transformer.transform(row, stream.schema.to_dict())
                 project["deployments"].append(row["id"])
                 singer.write_record("deployments", transformed_row, time_extracted=utils.now())
 
 
-def sync_pipelines(project):
-    if is_entity_in_state('pipelines'):
-        url = get_url("pipelines", project['id'])
+def sync_pipelines(config, stream, project):
+    if stream.is_selected():
+        extract_from = STATE.get(f'project_{project["id"]}') or config['start_date']
+        url = get_url(config, "pipelines", project['id'], extract_from)
         project["pipelines"] = []
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                transformed_row = transformer.transform(row, RESOURCES["pipelines"]["schema"])
+            for row in gen_request(config, url):
+                transformed_row = transformer.transform(row, stream.schema.to_dict())
                 project["pipelines"].append(row["id"])
                 singer.write_record("pipelines", transformed_row, time_extracted=utils.now())
 
 
-def sync_releases(project):
-    if is_entity_in_state('releases'):
-        url = get_url("releases", project['id'])
+def sync_releases(config, stream, project):
+    if stream.is_selected():
+        extract_from = STATE.get(f'project_{project["id"]}') or config['start_date']
+        url = get_url(config, "releases", project['id'])
         project["releases"] = []
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                transformed_row = transformer.transform(row, RESOURCES["releases"]["schema"])
+            for row in gen_request(config, url):
+                transformed_row = transformer.transform(row, stream.schema.to_dict())
                 project["releases"].append(row["tag_name"])
-                singer.write_record("releases", transformed_row, time_extracted=utils.now())
+                if row["released_at"] >= extract_from:
+                    singer.write_record("releases", transformed_row, time_extracted=utils.now())
 
 
-def sync_group(gid, pids):
-    url = CONFIG['api_url'] + RESOURCES["groups"]['url'].format(gid)
+def sync_group(config, catalog, gid, state_path):
+    url = config['api_url'] + SCHEMAS["groups"]['url'].format(gid)
 
-    data = request(url).json()
-    time_extracted = utils.now()
+    data = request(config, url).json()
+    pids = []
+    stream = catalog.get_stream('groups')
 
     with Transformer(pre_hook=format_timestamp) as transformer:
-        group = transformer.transform(data, RESOURCES["groups"]["schema"])
+        group = transformer.transform(data, stream.schema.to_dict())
 
-    if not pids:
-        #  Get all the projects of the group if none are provided
-        for project in group['projects']:
-            if project['id']:
-                pids.append(project['id'])
+    for project in group['projects']:
+        if project['id']:
+            pids.append(project['id'])
 
     for pid in pids:
-        sync_project(pid)
+        sync_project(config, catalog, pid)
+        persist_state(state_path, STATE)
 
-    sync_milestones(group, "group")
-
-    singer.write_record("groups", group, time_extracted=time_extracted)
+    singer.write_record("groups", group, time_extracted=utils.now())
 
 
-def sync_project(pid):
-    url = get_url("projects", pid)
-    data = request(url).json()
-    extraction_time = utils.now()
+def sync_project(config, catalog, pid):
+    url = get_url(config, "projects", pid)
+    data = request(config, url).json()
+    stream = catalog.get_stream('projects')
 
     with Transformer(pre_hook=format_timestamp) as transformer:
         flatten_id(data, "owner")
-        project = transformer.transform(data, RESOURCES["projects"]["schema"])
+        project = transformer.transform(data, stream.schema.to_dict())
 
     state_key = "project_{}".format(project["id"])
 
@@ -318,61 +348,66 @@ def sync_project(pid):
             "There is no last_activity_at or created_at field on project {}. This usually means I don't have access to the project."
             .format(project['id']))
 
-    if project['last_activity_at'] >= get_start(state_key):
-        sync_branches(project, extraction_time)
-        sync_commits(project, extraction_time)
-        sync_issues(project)
-        sync_milestones(project)
-        sync_users(project)
-        sync_deployments(project)
-        sync_pipelines(project)
-        sync_releases(project)
+    current_bookmark = singer.get_bookmark(STATE, state_key, 'last_activity_at', config['start_date'])
+    new_bookmark = pendulum.now().to_iso8601_string()
+    LOGGER.info(f'Syncing project {pid} from {current_bookmark} to now. New bookmark will be {new_bookmark}.')
 
-        singer.write_record("projects", project, time_extracted=extraction_time)
+    if project['last_activity_at'] >= current_bookmark:
+        sync_branches(config, catalog.get_stream('branches'), project)
+        sync_commits(config, catalog.get_stream('commits'), project)
+        sync_issues(config, catalog.get_stream('issues'), project)
+        sync_users(config, catalog.get_stream('users'), project)
+        sync_deployments(config, catalog.get_stream('deployments'), project)
+        sync_pipelines(config, catalog.get_stream('pipelines'), project)
+        sync_releases(config, catalog.get_stream('releases'), project)
+
+        singer.write_record("projects", project, time_extracted=utils.now())
         utils.update_state(STATE, state_key, last_activity_at)
         singer.write_state(STATE)
+        write_bookmark(STATE, state_key, 'last_activity_at', new_bookmark)
 
 
-def do_sync():
+def sync(args, catalog):
     LOGGER.info("Starting sync")
 
-    gids = list(filter(None, CONFIG['groups'].split(' ')))
-    pids = list(filter(None, CONFIG['projects'].split(' ')))
+    config = args.config
+    STATE.update(args.state)
 
-    for resource, config in RESOURCES.items():
-        singer.write_schema(resource, config['schema'], config['key_properties'])
+    gids = list(filter(None, config['groups'].split(' ')))
+    pids = list(filter(None, config['projects'].split(' ')))
+
+    for stream in catalog.get_selected_streams(STATE):
+        singer.write_schema(stream.stream, stream.schema.to_dict(), SCHEMAS[stream.stream]['key_properties'])
 
     for gid in gids:
-        sync_group(gid, pids)
+        sync_group(config, catalog, gid, args.state_path)
 
     if not gids:
         # When not syncing groups
         for pid in pids:
-            sync_project(pid)
+            sync_project(config, catalog, pid)
+            persist_state(args.state_path, STATE)
 
     LOGGER.info("Sync complete")
 
 
-def main_impl():
-    # TODO: Address properties that are required or not
-
-    args = utils.parse_args(["private_token", "projects", "start_date"])
-
-    CONFIG.update(args.config)
-
-    if args.state:
-        STATE.update(args.state)
-
-    do_sync()
-
-
+@utils.handle_top_exception(LOGGER)
 def main():
-    try:
-        main_impl()
-    except Exception as exc:
-        LOGGER.critical(exc)
-        raise exc
+    # Parse command line arguments
+    args = utils.parse_args(REQUIRED_CONFIG_KEYS)
+
+    # If discover flag was passed, run discovery mode and dump output to stdout
+    if args.discover:
+        catalog = discover()
+        catalog.dump()
+    # Otherwise run in sync mode
+    else:
+        if args.catalog:
+            catalog = args.catalog
+        else:
+            catalog = discover()
+        sync(args, catalog)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

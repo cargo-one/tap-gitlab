@@ -10,10 +10,11 @@ setup(name='tap-gitlab',
       classifiers=['Programming Language :: Python :: 3 :: Only'],
       py_modules=['tap_gitlab'],
       install_requires=[
-          'singer-python==5.0.4',
-          'requests==2.20.0',
+          'singer-python==5.12.2',
+          'requests==2.28.*',
           'strict-rfc3339==0.7',
-          'backoff==1.3.2'
+          'backoff==1.8.*',
+          'pendulum==2.1.*'
       ],
       entry_points='''
           [console_scripts]
@@ -24,9 +25,12 @@ setup(name='tap-gitlab',
           'tap_gitlab/schemas': [
             "branches.json",
             "commits.json",
+            "deployments.json",
+            "groups.json",
             "issues.json",
-            "milestones.json",
+            "pipelines.json",
             "projects.json",
+            "releases.json",
             "users.json",
           ],
       },
