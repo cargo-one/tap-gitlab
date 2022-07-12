@@ -205,6 +205,19 @@
                 }
             ]
         },
+        "users": {
+            "anyOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
         "visibility_level": {
             "type": ["null", "integer"]
         },
