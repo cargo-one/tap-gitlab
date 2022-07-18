@@ -33,6 +33,19 @@
         "default_branch": {
             "type": ["null", "string"]
         },
+        "deployments": {
+            "anyOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
         "description": {
             "type": ["null", "string"]
         },
@@ -147,11 +160,37 @@
                 }
             }
         },
+        "pipelines": {
+            "anyOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
         "public": {
             "type": ["null", "boolean"]
         },
         "public_builds": {
             "type": ["null", "boolean"]
+        },
+        "releases": {
+            "anyOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "request_access_enabled": {
             "type": ["null", "boolean"]
