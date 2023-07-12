@@ -89,7 +89,7 @@ LOGGER = singer.get_logger()
 SESSION = requests.Session()
 
 
-def get_date_filter_param(entity):
+def get_date_filter_param(entity, state_key):
     date_filtering = {
         "branches": '',
         "commits": "since",
@@ -103,14 +103,15 @@ def get_date_filter_param(entity):
         "releases": '',
     }
 
-    return f'?{date_filtering.get(entity)}={STATE.get(entity)}'
+    return f'?{date_filtering.get(entity)}={STATE.get(state_key)}'
 
 
 def get_url(entity, id):
+    state_key = "project_{}".format(id)
     if not isinstance(id, int):
         id = id.replace("/", "%2F")
 
-    return CONFIG['api_url'] + RESOURCES[entity]['url'].format(id) + get_date_filter_param(entity)
+    return CONFIG['api_url'] + RESOURCES[entity]['url'].format(id) + get_date_filter_param(entity, state_key)
 
 
 def get_start(entity):
