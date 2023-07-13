@@ -139,10 +139,8 @@ def request(url, params=None):
     resp = SESSION.send(req)
 
     if resp.status_code >= 400:
-        LOGGER.critical(
-            "Error making request to GitLab API: GET {} [{} - {}]".format(
+        raise Exception("Error making request to GitLab API: GET {} [{} - {}]".format(
                 req.url, resp.status_code, resp.content))
-        sys.exit(1)
 
     return resp
 
@@ -187,35 +185,44 @@ def sync_branches(project):
     if is_entity_in_state('branches'):
         url = get_url("branches", project['id'])
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                row['project_id'] = project['id']
-                flatten_id(row, "commit")
-                transformed_row = transformer.transform(row, RESOURCES["branches"]["schema"])
-                singer.write_record("branches", transformed_row, time_extracted=utils.now())
+            try:
+                for row in gen_request(url):
+                    row['project_id'] = project['id']
+                    flatten_id(row, "commit")
+                    transformed_row = transformer.transform(row, RESOURCES["branches"]["schema"])
+                    singer.write_record("branches", transformed_row, time_extracted=utils.now())
+            except Exception:
+                LOGGER.exception('Loading data failed')
 
 
 def sync_commits(project):
     if is_entity_in_state('commits'):
         url = get_url("commits", project['id'])
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                row['project_id'] = project["id"]
-                transformed_row = transformer.transform(row, RESOURCES["commits"]["schema"])
-                singer.write_record("commits", transformed_row, time_extracted=utils.now())
+            try:
+                for row in gen_request(url):
+                    row['project_id'] = project["id"]
+                    transformed_row = transformer.transform(row, RESOURCES["commits"]["schema"])
+                    singer.write_record("commits", transformed_row, time_extracted=utils.now())
+            except Exception:
+                LOGGER.exception('Loading data failed')
 
 
 def sync_issues(project):
     if is_entity_in_state('issues'):
         url = get_url("issues", project['id'])
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                flatten_id(row, "author")
-                flatten_id(row, "assignee")
-                flatten_id(row, "milestone")
-                transformed_row = transformer.transform(row, RESOURCES["issues"]["schema"])
+            try:
+                for row in gen_request(url):
+                    flatten_id(row, "author")
+                    flatten_id(row, "assignee")
+                    flatten_id(row, "milestone")
+                    transformed_row = transformer.transform(row, RESOURCES["issues"]["schema"])
 
-                if row["updated_at"] >= get_start("project_{}".format(project["id"])):
-                    singer.write_record("issues", transformed_row, time_extracted=utils.now())
+                    if row["updated_at"] >= get_start("project_{}".format(project["id"])):
+                        singer.write_record("issues", transformed_row, time_extracted=utils.now())
+            except Exception:
+                LOGGER.exception('Loading data failed')
 
 
 def sync_milestones(entity, element="project"):
@@ -223,51 +230,66 @@ def sync_milestones(entity, element="project"):
         url = get_url(element + "_milestones", entity['id'])
 
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                transformed_row = transformer.transform(row, RESOURCES[element + "_milestones"]["schema"])
+            try:
+                for row in gen_request(url):
+                    transformed_row = transformer.transform(row, RESOURCES[element + "_milestones"]["schema"])
 
-                if row["updated_at"] >= get_start(element + "_{}".format(entity["id"])):
-                    singer.write_record(element + "_milestones", transformed_row, time_extracted=utils.now())
+                    if row["updated_at"] >= get_start(element + "_{}".format(entity["id"])):
+                        singer.write_record(element + "_milestones", transformed_row, time_extracted=utils.now())
+            except Exception:
+                LOGGER.exception('Loading data failed')
 
 def sync_users(project):
     if is_entity_in_state('users'):
         url = get_url("users", project['id'])
         project["users"] = []
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                transformed_row = transformer.transform(row, RESOURCES["users"]["schema"])
-                project["users"].append(row["id"])
-                singer.write_record("users", transformed_row, time_extracted=utils.now())
+            try:
+                for row in gen_request(url):
+                    transformed_row = transformer.transform(row, RESOURCES["users"]["schema"])
+                    project["users"].append(row["id"])
+                    singer.write_record("users", transformed_row, time_extracted=utils.now())
+            except Exception:
+                LOGGER.exception('Loading data failed')
 
 def sync_deployments(project):
     if is_entity_in_state('deployments'):
         url = get_url("deployments", project['id'])
         project["deployments"] = []
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                transformed_row = transformer.transform(row, RESOURCES["deployments"]["schema"])
-                project["deployments"].append(row["id"])
-                singer.write_record("deployments", transformed_row, time_extracted=utils.now())
+            try:
+                for row in gen_request(url):
+                    transformed_row = transformer.transform(row, RESOURCES["deployments"]["schema"])
+                    project["deployments"].append(row["id"])
+                    singer.write_record("deployments", transformed_row, time_extracted=utils.now())
+            except Exception:
+                LOGGER.exception('Loading data failed')
 
 def sync_pipelines(project):
     if is_entity_in_state('pipelines'):
         url = get_url("pipelines", project['id'])
         project["pipelines"] = []
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                transformed_row = transformer.transform(row, RESOURCES["pipelines"]["schema"])
-                project["pipelines"].append(row["id"])
-                singer.write_record("pipelines", transformed_row, time_extracted=utils.now())
+            try:
+                for row in gen_request(url):
+                    transformed_row = transformer.transform(row, RESOURCES["pipelines"]["schema"])
+                    project["pipelines"].append(row["id"])
+                    singer.write_record("pipelines", transformed_row, time_extracted=utils.now())
+            except Exception:
+                LOGGER.exception('Loading data failed')
 
 def sync_releases(project):
     if is_entity_in_state('releases'):
         url = get_url("releases", project['id'])
         project["releases"] = []
         with Transformer(pre_hook=format_timestamp) as transformer:
-            for row in gen_request(url):
-                transformed_row = transformer.transform(row, RESOURCES["releases"]["schema"])
-                project["releases"].append(row["tag_name"])
-                singer.write_record("releases", transformed_row, time_extracted=utils.now())
+            try:
+                for row in gen_request(url):
+                    transformed_row = transformer.transform(row, RESOURCES["releases"]["schema"])
+                    project["releases"].append(row["tag_name"])
+                    singer.write_record("releases", transformed_row, time_extracted=utils.now())
+            except Exception:
+                LOGGER.exception('Loading data failed')
 
 def sync_group(gid, pids):
     url = CONFIG['api_url'] + RESOURCES["groups"]['url'].format(gid)
