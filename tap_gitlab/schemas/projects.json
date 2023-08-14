@@ -213,6 +213,10 @@
         },
         "wiki_enabled": {
             "type": ["null", "boolean"]
+        },
+        "__extracted_at": {
+            "type": "string",
+            "format": "date-time"
         }
     }
 }

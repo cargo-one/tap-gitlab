@@ -175,6 +175,10 @@ def flatten_id(item, target):
         item[target + '_id'] = None
 
 
+def add_extraction_date(row, key='__extracted_at'):
+    row[key] = utils.now()
+
+
 def is_entity_in_state(entity):
     if STATE.get(entity):
         return True
@@ -189,6 +193,7 @@ def sync_branches(project):
                 for row in gen_request(url):
                     row['project_id'] = project['id']
                     flatten_id(row, "commit")
+                    add_extraction_date(row)
                     transformed_row = transformer.transform(row, RESOURCES["branches"]["schema"])
                     singer.write_record("branches", transformed_row, time_extracted=utils.now())
             except Exception:
@@ -202,6 +207,7 @@ def sync_commits(project):
             try:
                 for row in gen_request(url):
                     row['project_id'] = project["id"]
+                    add_extraction_date(row)
                     transformed_row = transformer.transform(row, RESOURCES["commits"]["schema"])
                     singer.write_record("commits", transformed_row, time_extracted=utils.now())
             except Exception:
@@ -217,6 +223,7 @@ def sync_issues(project):
                     flatten_id(row, "author")
                     flatten_id(row, "assignee")
                     flatten_id(row, "milestone")
+                    add_extraction_date(row)
                     transformed_row = transformer.transform(row, RESOURCES["issues"]["schema"])
 
                     if row["updated_at"] >= get_start("project_{}".format(project["id"])):
@@ -232,6 +239,7 @@ def sync_milestones(entity, element="project"):
         with Transformer(pre_hook=format_timestamp) as transformer:
             try:
                 for row in gen_request(url):
+                    add_extraction_date(row)
                     transformed_row = transformer.transform(row, RESOURCES[element + "_milestones"]["schema"])
 
                     if row["updated_at"] >= get_start(element + "_{}".format(entity["id"])):
@@ -246,6 +254,7 @@ def sync_users(project):
         with Transformer(pre_hook=format_timestamp) as transformer:
             try:
                 for row in gen_request(url):
+                    add_extraction_date(row)
                     transformed_row = transformer.transform(row, RESOURCES["users"]["schema"])
                     project["users"].append(row["id"])
                     singer.write_record("users", transformed_row, time_extracted=utils.now())
@@ -259,6 +268,7 @@ def sync_deployments(project):
         with Transformer(pre_hook=format_timestamp) as transformer:
             try:
                 for row in gen_request(url):
+                    add_extraction_date(row)
                     transformed_row = transformer.transform(row, RESOURCES["deployments"]["schema"])
                     project["deployments"].append(row["id"])
                     singer.write_record("deployments", transformed_row, time_extracted=utils.now())
@@ -272,6 +282,7 @@ def sync_pipelines(project):
         with Transformer(pre_hook=format_timestamp) as transformer:
             try:
                 for row in gen_request(url):
+                    add_extraction_date(row)
                     transformed_row = transformer.transform(row, RESOURCES["pipelines"]["schema"])
                     project["pipelines"].append(row["id"])
                     singer.write_record("pipelines", transformed_row, time_extracted=utils.now())
@@ -285,6 +296,7 @@ def sync_releases(project):
         with Transformer(pre_hook=format_timestamp) as transformer:
             try:
                 for row in gen_request(url):
+                    add_extraction_date(row)
                     transformed_row = transformer.transform(row, RESOURCES["releases"]["schema"])
                     project["releases"].append(row["tag_name"])
                     singer.write_record("releases", transformed_row, time_extracted=utils.now())
@@ -321,6 +333,7 @@ def sync_project(pid):
 
     with Transformer(pre_hook=format_timestamp) as transformer:
         flatten_id(data, "owner")
+        add_extraction_date(data)
         project = transformer.transform(data, RESOURCES["projects"]["schema"])
 
     state_key = "project_{}".format(project["id"])

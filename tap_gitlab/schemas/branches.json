@@ -21,6 +21,10 @@
         },
         "commit_id": {
             "type": ["null", "string"]
+        },
+        "__extracted_at": {
+            "type": "string",
+            "format": "date-time"
         }
     }
 }

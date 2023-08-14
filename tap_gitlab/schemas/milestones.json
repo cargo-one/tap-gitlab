@@ -35,6 +35,10 @@
         "created_at": {
             "type": "string",
             "format": "date-time"
+        },
+        "__extracted_at": {
+            "type": "string",
+            "format": "date-time"
         }
     }
 }
