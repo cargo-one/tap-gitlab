@@ -5,7 +5,7 @@ import sys
 import os
 import requests
 import singer
-from singer import Transformer, utils
+from singer import Transformer, utils, strftime
 
 import pytz
 import backoff
@@ -159,14 +159,32 @@ def gen_request(url):
         for row in resp.json():
             yield row
 
+
+def alt_gen_request(url):
+    # Some endpoints use x-next-page instead of x-total-pages
+    params = {'page': 1}
+    resp = request(url, params)
+    next_page = resp.headers.get('x-next-page', False)
+
+    for row in resp.json():
+        yield row
+
+    while next_page:
+        params['page'] = next_page
+        resp = request(url, params)
+        next_page = resp.headers.get('x-next-page', False)
+        for row in resp.json():
+            yield row
+
+
 def format_timestamp(data, typ, schema):
     result = data
     if typ == 'string' and schema.get('format') == 'date-time':
         rfc3339_ts = rfc3339_to_timestamp(data)
         utc_dt = datetime.datetime.utcfromtimestamp(rfc3339_ts).replace(tzinfo=pytz.UTC)
         result = utils.strftime(utc_dt)
-
     return result
+
 
 def flatten_id(item, target):
     if target in item and item[target] is not None:
@@ -176,7 +194,7 @@ def flatten_id(item, target):
 
 
 def add_extraction_date(row, key='__extracted_at'):
-    row[key] = utils.now()
+    row[key] = strftime(utils.now())
 
 
 def is_entity_in_state(entity):
@@ -205,7 +223,7 @@ def sync_commits(project):
         url = get_url("commits", project['id'])
         with Transformer(pre_hook=format_timestamp) as transformer:
             try:
-                for row in gen_request(url):
+                for row in alt_gen_request(url):
                     row['project_id'] = project["id"]
                     add_extraction_date(row)
                     transformed_row = transformer.transform(row, RESOURCES["commits"]["schema"])
