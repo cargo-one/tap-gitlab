@@ -13,7 +13,7 @@ from strict_rfc3339 import rfc3339_to_timestamp
 
 PER_PAGE = 100
 CONFIG = {
-    'api_url': "https://gitlab.com/api/v3",
+    'api_url': "https://gitlab.com/api/v4",
     'private_token': None,
     'start_date': None,
     'groups': ''
@@ -82,6 +82,21 @@ RESOURCES = {
         'schema': load_schema('releases'),
         'key_properties': ['tag_name'],
     },
+    'merge_requests': {
+        'url': '/projects/{}/merge_requests',
+        'schema': load_schema('merge_requests'),
+        'key_properties': ['id'],
+    },
+    'discussions': {
+        'url': '/projects/{}/merge_requests/{}/discussions',
+        'schema': load_schema('discussions'),
+        'key_properties': ['id'],
+    },
+    'notes': {
+        'url': '/projects/{}/merge_requests/{}/notes',
+        'schema': load_schema('notes'),
+        'key_properties': ['id'],
+    },
 }
 
 
@@ -101,17 +116,25 @@ def get_date_filter_param(entity, state_key):
         "projects": "last_activity_after",
         "users": '',
         "releases": '',
+        "merge_requests": "updated_after",
+        "discussions": '',
+        "notes": '',
     }
 
     return f'?{date_filtering.get(entity)}={STATE.get(state_key)}'
 
 
-def get_url(entity, id):
+def get_url(entity, id, mr_iid=None):
     state_key = "project_{}".format(id)
     if not isinstance(id, int):
         id = id.replace("/", "%2F")
 
-    return CONFIG['api_url'] + RESOURCES[entity]['url'].format(id) + get_date_filter_param(entity, state_key)
+    if entity in ['discussions', 'notes'] and mr_iid is not None:
+        url = CONFIG['api_url'] + RESOURCES[entity]['url'].format(id, mr_iid)
+    else:
+        url = CONFIG['api_url'] + RESOURCES[entity]['url'].format(id)
+    
+    return url + get_date_filter_param(entity, state_key)
 
 
 def get_start(entity):
@@ -201,6 +224,79 @@ def is_entity_in_state(entity):
     if STATE.get(entity):
         return True
     return False
+
+
+def calculate_mr_metrics(mr_data, project_id):
+    """Calculate computed metrics for merge requests"""
+    try:
+        # Get additional MR details if needed
+        mr_details_url = f"{CONFIG['api_url']}/projects/{project_id}/merge_requests/{mr_data['iid']}"
+        mr_details = request(mr_details_url).json()
+        
+        # Get commits for this MR
+        commits_url = f"{CONFIG['api_url']}/projects/{project_id}/merge_requests/{mr_data['iid']}/commits"
+        commits = list(gen_request(commits_url))
+        mr_data['commits_count'] = len(commits)
+        
+        # Get discussions for review metrics
+        discussions_url = f"{CONFIG['api_url']}/projects/{project_id}/merge_requests/{mr_data['iid']}/discussions"
+        discussions = list(gen_request(discussions_url))
+        
+        # Calculate first review/approval times
+        first_review_at = None
+        first_approval_at = None
+        commits_after_first_review = 0
+        
+        for discussion in discussions:
+            for note in discussion.get('notes', []):
+                if not note.get('system', False) and note.get('author', {}).get('id') != mr_data.get('author', {}).get('id'):
+                    note_created = note.get('created_at')
+                    if note_created and (not first_review_at or note_created < first_review_at):
+                        first_review_at = note_created
+                
+                # Check for approval indicators
+                if 'approved' in note.get('body', '').lower() or note.get('type') == 'approval':
+                    note_created = note.get('created_at')
+                    if note_created and (not first_approval_at or note_created < first_approval_at):
+                        first_approval_at = note_created
+        
+        mr_data['first_review_at'] = first_review_at
+        mr_data['first_approval_at'] = first_approval_at
+        
+        # Count commits after first review
+        if first_review_at:
+            for commit in commits:
+                if commit.get('created_at', '') > first_review_at:
+                    commits_after_first_review += 1
+        
+        mr_data['commits_after_first_review'] = commits_after_first_review
+        
+        # Check for staging deployment pipeline
+        pipelines_url = f"{CONFIG['api_url']}/projects/{project_id}/merge_requests/{mr_data['iid']}/pipelines"
+        pipelines = list(gen_request(pipelines_url))
+        
+        has_staging_deployment = False
+        staging_deployment_at = None
+        
+        for pipeline in pipelines:
+            # Get pipeline jobs to check for staging deployment
+            jobs_url = f"{CONFIG['api_url']}/projects/{project_id}/pipelines/{pipeline['id']}/jobs"
+            jobs = list(gen_request(jobs_url))
+            
+            for job in jobs:
+                if 'staging' in job.get('name', '').lower() or 'deploy' in job.get('stage', '').lower():
+                    has_staging_deployment = True
+                    if job.get('status') == 'success' and job.get('finished_at'):
+                        if not staging_deployment_at or job['finished_at'] < staging_deployment_at:
+                            staging_deployment_at = job['finished_at']
+        
+        mr_data['has_staging_deployment'] = has_staging_deployment
+        mr_data['staging_deployment_at'] = staging_deployment_at
+        
+    except Exception as e:
+        LOGGER.warning(f"Failed to calculate metrics for MR {mr_data.get('iid')}: {e}")
+    
+    return mr_data
 
 
 def sync_branches(project):
@@ -321,6 +417,64 @@ def sync_releases(project):
             except Exception:
                 LOGGER.exception('Loading data failed')
 
+
+def sync_merge_requests(project):
+    if is_entity_in_state('merge_requests'):
+        url = get_url("merge_requests", project['id'])
+        project["merge_requests"] = []
+        with Transformer(pre_hook=format_timestamp) as transformer:
+            try:
+                for row in alt_gen_request(url):
+                    # Calculate computed metrics
+                    row = calculate_mr_metrics(row, project['id'])
+                    
+                    # Flatten related objects
+                    flatten_id(row, "author")
+                    flatten_id(row, "assignee")
+                    flatten_id(row, "milestone")
+                    
+                    add_extraction_date(row)
+                    transformed_row = transformer.transform(row, RESOURCES["merge_requests"]["schema"])
+                    
+                    # Sync discussions and notes for this MR
+                    sync_discussions(project, row['iid'])
+                    sync_notes(project, row['iid'])
+                    
+                    project["merge_requests"].append(row["id"])
+                    singer.write_record("merge_requests", transformed_row, time_extracted=utils.now())
+            except Exception:
+                LOGGER.exception('Loading merge requests data failed')
+
+
+def sync_discussions(project, mr_iid):
+    if is_entity_in_state('discussions'):
+        url = get_url("discussions", project['id'], mr_iid)
+        with Transformer(pre_hook=format_timestamp) as transformer:
+            try:
+                for row in gen_request(url):
+                    row['project_id'] = project['id']
+                    row['merge_request_iid'] = mr_iid
+                    add_extraction_date(row)
+                    transformed_row = transformer.transform(row, RESOURCES["discussions"]["schema"])
+                    singer.write_record("discussions", transformed_row, time_extracted=utils.now())
+            except Exception:
+                LOGGER.exception('Loading discussions data failed')
+
+
+def sync_notes(project, mr_iid):
+    if is_entity_in_state('notes'):
+        url = get_url("notes", project['id'], mr_iid)
+        with Transformer(pre_hook=format_timestamp) as transformer:
+            try:
+                for row in gen_request(url):
+                    row['project_id'] = project['id']
+                    row['merge_request_iid'] = mr_iid
+                    add_extraction_date(row)
+                    transformed_row = transformer.transform(row, RESOURCES["notes"]["schema"])
+                    singer.write_record("notes", transformed_row, time_extracted=utils.now())
+            except Exception:
+                LOGGER.exception('Loading notes data failed')
+
 def sync_group(gid, pids):
     url = CONFIG['api_url'] + RESOURCES["groups"]['url'].format(gid)
 
@@ -375,6 +529,7 @@ def sync_project(pid):
         sync_deployments(project)
         sync_pipelines(project)
         sync_releases(project)
+        sync_merge_requests(project)
 
         singer.write_record("projects", project, time_extracted=time_extracted)
         utils.update_state(STATE, state_key, last_activity_at)

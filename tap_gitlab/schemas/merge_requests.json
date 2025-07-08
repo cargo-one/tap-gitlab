@@ -1,0 +1,239 @@
+{
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": ["null", "integer"]
+        },
+        "iid": {
+            "type": ["null", "integer"]
+        },
+        "project_id": {
+            "type": ["null", "integer"]
+        },
+        "title": {
+            "type": ["null", "string"]
+        },
+        "description": {
+            "type": ["null", "string"]
+        },
+        "state": {
+            "type": ["null", "string"]
+        },
+        "created_at": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "updated_at": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "merged_at": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "closed_at": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "target_branch": {
+            "type": ["null", "string"]
+        },
+        "source_branch": {
+            "type": ["null", "string"]
+        },
+        "upvotes": {
+            "type": ["null", "integer"]
+        },
+        "downvotes": {
+            "type": ["null", "integer"]
+        },
+        "author_id": {
+            "type": ["null", "integer"]
+        },
+        "assignee_id": {
+            "type": ["null", "integer"]
+        },
+        "source_project_id": {
+            "type": ["null", "integer"]
+        },
+        "target_project_id": {
+            "type": ["null", "integer"]
+        },
+        "labels": {
+            "anyOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "work_in_progress": {
+            "type": ["null", "boolean"]
+        },
+        "milestone_id": {
+            "type": ["null", "integer"]
+        },
+        "merge_when_pipeline_succeeds": {
+            "type": ["null", "boolean"]
+        },
+        "merge_status": {
+            "type": ["null", "string"]
+        },
+        "sha": {
+            "type": ["null", "string"]
+        },
+        "merge_commit_sha": {
+            "type": ["null", "string"]
+        },
+        "user_notes_count": {
+            "type": ["null", "integer"]
+        },
+        "discussion_locked": {
+            "type": ["null", "boolean"]
+        },
+        "should_remove_source_branch": {
+            "type": ["null", "boolean"]
+        },
+        "force_remove_source_branch": {
+            "type": ["null", "boolean"]
+        },
+        "web_url": {
+            "type": ["null", "string"]
+        },
+        "time_stats": {
+            "type": "object",
+            "properties": {
+                "time_estimate": {
+                    "type": ["null", "integer"]
+                },
+                "total_time_spent": {
+                    "type": ["null", "integer"]
+                },
+                "human_time_estimate": {
+                    "type": ["null", "string"]
+                },
+                "human_total_time_spent": {
+                    "type": ["null", "string"]
+                }
+            }
+        },
+        "squash": {
+            "type": ["null", "boolean"]
+        },
+        "approvals_before_merge": {
+            "type": ["null", "integer"]
+        },
+        "reviewers": {
+            "anyOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": ["null", "integer"]
+                            },
+                            "name": {
+                                "type": ["null", "string"]
+                            },
+                            "username": {
+                                "type": ["null", "string"]
+                            },
+                            "state": {
+                                "type": ["null", "string"]
+                            },
+                            "avatar_url": {
+                                "type": ["null", "string"]
+                            },
+                            "web_url": {
+                                "type": ["null", "string"]
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "first_review_at": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "first_approval_at": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "commits_count": {
+            "type": ["null", "integer"]
+        },
+        "commits_after_first_review": {
+            "type": ["null", "integer"]
+        },
+        "has_staging_deployment": {
+            "type": ["null", "boolean"]
+        },
+        "staging_deployment_at": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "__extracted_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    }
+}

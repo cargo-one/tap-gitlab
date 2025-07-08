@@ -13,8 +13,34 @@ This tap:
   - [Users](https://docs.gitlab.com/ee/api/users.html)
   - [Groups](https://docs.gitlab.com/ee/api/group_milestones.html)
   - [Group Milestones](https://docs.gitlab.com/ee/api/users.html)
+  - [Deployments](https://docs.gitlab.com/ee/api/deployments.html)
+  - [Pipelines](https://docs.gitlab.com/ee/api/pipelines.html)
+  - [Releases](https://docs.gitlab.com/ee/api/releases/index.html)
+  - **[Merge Requests](https://docs.gitlab.com/ee/api/merge_requests.html)** - *NEW*
+  - **[Discussions](https://docs.gitlab.com/ee/api/discussions.html)** - *NEW*
+  - **[Notes](https://docs.gitlab.com/ee/api/notes.html)** - *NEW*
+- **Code Review Metrics**: Calculates comprehensive review analytics including review ratios, speed, depth, and MR quality
 - Outputs the schema for each resource
 - Incrementally pulls data based on the input state
+
+## ✨ Code Review Features
+
+This enhanced version provides built-in calculation of key code review metrics:
+
+- **Review Ratio**: Reviews given vs MRs created per developer
+- **Review Speed**: Time from MR creation to first review/approval  
+- **Review Depth**: Comments per 100 lines of code changed
+- **MR Quality**: Commits made after initial review feedback
+- **Staging Deployment**: Pipeline execution tracking before merge
+
+### Computed Fields
+
+New merge request records include these computed metrics:
+- `first_review_at` - Timestamp of first review comment  
+- `first_approval_at` - Timestamp of first approval
+- `commits_after_first_review` - Count of commits after review feedback
+- `has_staging_deployment` - Boolean flag for staging pipeline execution
+- `staging_deployment_at` - Timestamp of successful staging deployment
 
 
 ## Quick start
@@ -35,7 +61,7 @@ This tap:
 
     Create a JSON file called `config.json` containing:
     - Access token you just created
-    - API URL for your GitLab account. If you are using the public gitlab.com this will be `https://gitlab.com/api/v3`
+    - API URL for your GitLab account. If you are using the public gitlab.com this will be `https://gitlab.com/api/v4`
     - Groups to track (space separated)    
     - Projects to track (space separated)
     
@@ -46,7 +72,7 @@ This tap:
     - filling in 'groups' and 'groups' will sync selected projects of those groups.
 
     ```json
-    {"api_url": "https://gitlab.com/api/v3",
+    {"api_url": "https://gitlab.com/api/v4",
      "private_token": "your-access-token",
     "groups": "myorg mygroup", 
     "projects": "myorg/repo-a myorg/repo-b",
@@ -66,7 +92,13 @@ This tap:
     "projects": "2017-01-17T00:00:00Z",
     "project_milestones": "2017-01-17T00:00:00Z", 
     "users": "2017-01-17T00:00:00Z",
-    "group_milestones": "2017-01-17T00:00:00Z"}
+    "group_milestones": "2017-01-17T00:00:00Z",
+    "deployments": "2017-01-17T00:00:00Z",
+    "pipelines": "2017-01-17T00:00:00Z",
+    "releases": "2017-01-17T00:00:00Z",
+    "merge_requests": "2017-01-17T00:00:00Z",
+    "discussions": "2017-01-17T00:00:00Z",
+    "notes": "2017-01-17T00:00:00Z"}
     ```
     
     Note:
