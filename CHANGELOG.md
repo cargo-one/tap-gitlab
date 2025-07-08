@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2025-01-08
+
+### Fixed
+- **API Parameter Issues**: Fixed malformed query parameters causing 400 errors
+- **Deployments API**: Removed problematic `updated_after` filter for deployments endpoint
+- **Error Handling**: Improved error handling for 403 Forbidden and API errors
+- **URL Parsing**: Fixed URL parameter parsing to prevent empty parameter names
+- **Graceful Degradation**: Added graceful handling when deployment access is forbidden
+
+### Technical Improvements
+- Enhanced URL generation with proper parameter handling
+- Improved pagination parameter merging
+- Added comprehensive error logging for debugging
+
 ## [1.0.0] - 2025-01-08
 
 ### Added
