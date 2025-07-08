@@ -606,6 +606,13 @@ def do_sync():
 
 def main_impl():
     # TODO: Address properties that are required or not
+    import sys
+    
+    # Check for version flag
+    if len(sys.argv) > 1 and sys.argv[1] == '--version':
+        print("tap-gitlab version 1.0.1")
+        print("Enhanced with code review metrics")
+        return
 
     args = utils.parse_args(["private_token", "projects", "start_date"])
 
@@ -614,6 +621,9 @@ def main_impl():
     if args.state:
         STATE.update(args.state)
 
+    # Log version at startup
+    LOGGER.info("Starting tap-gitlab v1.0.1 with code review metrics")
+    
     do_sync()
 
 
