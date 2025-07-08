@@ -548,7 +548,14 @@ def sync_group(gid, pids):
 
 def sync_project(pid):
     url = get_url("projects", pid)
-    data = request(url).json()
+    try:
+        data = request(url).json()
+    except Exception as e:
+        if "404" in str(e):
+            LOGGER.warning(f'Project {pid} not found (404) - skipping')
+            return
+        else:
+            raise e
     time_extracted = utils.now()
 
     with Transformer(pre_hook=format_timestamp) as transformer:

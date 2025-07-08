@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2025-07-08
+
+### Fixed
+- **Deployment Schema**: Fixed schema validation errors by making nested objects nullable
+- **Missing Projects**: Added error handling to gracefully skip 404 projects instead of crashing
+- **Error Resilience**: Improved job stability when encountering missing or inaccessible projects
+
+### Technical Improvements
+- Enhanced error handling in `sync_project()` function
+- Made deployments schema more flexible for incomplete API responses
+- Added proper logging for skipped projects
+
 ## [1.0.1] - 2025-01-08
 
 ### Fixed
