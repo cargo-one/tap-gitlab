@@ -6,6 +6,7 @@ import os
 import requests
 import singer
 from singer import Transformer, utils, strftime
+import logging
 
 import pytz
 import backoff
@@ -176,7 +177,7 @@ def request(url, params=None):
         headers['User-Agent'] = CONFIG['user_agent']
 
     req = requests.Request('GET', url, params=params, headers=headers).prepare()
-    LOGGER.info("GET {}".format(req.url))
+    LOGGER.debug("GET {}".format(req.url))
     resp = SESSION.send(req)
 
     if resp.status_code >= 400:
@@ -334,10 +335,10 @@ def calculate_mr_metrics(mr_data, project_id):
             mr_data['staging_deployment_at'] = staging_deployment_at
             
         except Exception as pipeline_error:
-            LOGGER.warning(f"Failed to get pipeline info for MR {mr_data.get('iid')}: {pipeline_error}")
+            LOGGER.debug(f"Failed to get pipeline info for MR {mr_data.get('iid')}: {pipeline_error}")
         
     except Exception as e:
-        LOGGER.warning(f"Failed to calculate metrics for MR {mr_data.get('iid')}: {e}")
+        LOGGER.debug(f"Failed to calculate metrics for MR {mr_data.get('iid')}: {e}")
     
     return mr_data
 
@@ -431,9 +432,9 @@ def sync_deployments(project):
                     singer.write_record("deployments", transformed_row, time_extracted=utils.now())
             except Exception as e:
                 if "403 Forbidden" in str(e):
-                    LOGGER.warning(f'Deployments access forbidden for project {project["id"]} - skipping')
+                    LOGGER.debug(f'Deployments access forbidden for project {project["id"]} - skipping')
                 elif "400 Bad request" in str(e):
-                    LOGGER.warning(f'Deployments API error for project {project["id"]} - skipping: {e}')
+                    LOGGER.debug(f'Deployments API error for project {project["id"]} - skipping: {e}')
                 else:
                     LOGGER.exception('Loading deployments data failed')
 
@@ -552,7 +553,7 @@ def sync_project(pid):
         data = request(url).json()
     except Exception as e:
         if "404" in str(e):
-            LOGGER.warning(f'Project {pid} not found (404) - skipping')
+            LOGGER.debug(f'Project {pid} not found (404) - skipping')
             return
         else:
             raise e
@@ -617,7 +618,7 @@ def main_impl():
     
     # Check for version flag
     if len(sys.argv) > 1 and sys.argv[1] == '--version':
-        print("tap-gitlab version 1.0.1")
+        print("tap-gitlab version 1.0.3")
         print("Enhanced with code review metrics")
         return
 
@@ -628,8 +629,16 @@ def main_impl():
     if args.state:
         STATE.update(args.state)
 
+    # Configure logging to reduce third-party library verbosity
+    logging.getLogger('google').setLevel(logging.WARNING)
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+    logging.getLogger('requests').setLevel(logging.WARNING)
+    logging.getLogger('google.cloud').setLevel(logging.WARNING)
+    logging.getLogger('google.api_core').setLevel(logging.WARNING)
+    logging.getLogger('google.auth').setLevel(logging.WARNING)
+    
     # Log version at startup
-    LOGGER.info("Starting tap-gitlab v1.0.1 with code review metrics")
+    LOGGER.info("Starting tap-gitlab v1.0.3 with code review metrics")
     
     do_sync()
 

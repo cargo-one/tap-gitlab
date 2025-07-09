@@ -2,17 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2025-07-09
+
+### Fixed
+- **Log Size Issue**: Further reduced log verbosity to prevent 1.04M log entries exceeding 256K limit
+- **Third-party Logging**: Improved filtering of Google Cloud and connection pool debug logs
+- **State Initialization**: Fixed missing stream initialization for new code review metrics
+
+### Technical Improvements
+- Enhanced logging configuration to reduce stderr output
+- Improved state management for incremental sync of new streams
+- Added more aggressive log filtering for production environments
+
 ## [1.0.2] - 2025-07-08
 
 ### Fixed
 - **Deployment Schema**: Fixed schema validation errors by making nested objects nullable
 - **Missing Projects**: Added error handling to gracefully skip 404 projects instead of crashing
 - **Error Resilience**: Improved job stability when encountering missing or inaccessible projects
+- **Log Size**: Reduced log verbosity to prevent oversized logs (>256K limit)
 
 ### Technical Improvements
 - Enhanced error handling in `sync_project()` function
 - Made deployments schema more flexible for incomplete API responses
-- Added proper logging for skipped projects
+- Changed API request logging from INFO to DEBUG level
+- Reduced metrics calculation and deployment error logging verbosity
 
 ## [1.0.1] - 2025-01-08
 
