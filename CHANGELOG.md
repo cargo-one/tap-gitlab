@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.4] - 2025-07-09
+
+### Fixed
+- **Timestamp Handling**: Fixed format_timestamp function to handle None values properly
+- **Schema Validation**: Prevented TypeError when merge request fields contain null timestamp values
+- **Data Processing**: Improved robustness of date-time field processing for nullable timestamp fields
+
+### Technical Improvements
+- Added null check in format_timestamp pre-hook function
+- Enhanced error handling for optional timestamp fields in merge requests
+- Improved data transformation resilience for incomplete API responses
+
 ## [1.0.3] - 2025-07-09
 
 ### Fixed

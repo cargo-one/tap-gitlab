@@ -242,7 +242,7 @@ def alt_gen_request(url):
 
 def format_timestamp(data, typ, schema):
     result = data
-    if typ == 'string' and schema.get('format') == 'date-time':
+    if typ == 'string' and schema.get('format') == 'date-time' and data is not None:
         rfc3339_ts = rfc3339_to_timestamp(data)
         utc_dt = datetime.datetime.utcfromtimestamp(rfc3339_ts).replace(tzinfo=pytz.UTC)
         result = utils.strftime(utc_dt)
@@ -618,7 +618,7 @@ def main_impl():
     
     # Check for version flag
     if len(sys.argv) > 1 and sys.argv[1] == '--version':
-        print("tap-gitlab version 1.0.3")
+        print("tap-gitlab version 1.0.4")
         print("Enhanced with code review metrics")
         return
 
@@ -638,7 +638,7 @@ def main_impl():
     logging.getLogger('google.auth').setLevel(logging.WARNING)
     
     # Log version at startup
-    LOGGER.info("Starting tap-gitlab v1.0.3 with code review metrics")
+    LOGGER.info("Starting tap-gitlab v1.0.4 with code review metrics")
     
     do_sync()
 
