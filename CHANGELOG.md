@@ -2,17 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.6] - 2025-07-10
+
+### Fixed
+- **Deployments API Issue**: Corrected deployments API parameters to use `order_by=updated_at` and `sort=asc` instead of incorrect `sort=updated_at`
+- **API Parameter Compliance**: Fixed GitLab API v4 parameter requirements for deployments endpoint based on official documentation
+
+### Technical Improvements
+- Enhanced get_date_filter_params function to handle deployments API requirements correctly
+- Better API compliance with GitLab v4 parameter validation using proper order_by and sort parameters
+
 ## [1.0.5] - 2025-07-10
 
 ### Fixed
-- **Deployments API Issue**: Added required `sort=updated_at` parameter when using `updated_after` filter for deployments
 - **404 Project Errors**: Removed inaccessible infrastructure projects from configuration to prevent job crashes
-- **API Parameter Compliance**: Fixed GitLab API v4 parameter requirements for deployments endpoint
+- **Deployments API Issue**: Initial attempt to fix deployments API (corrected in 1.0.6)
 
 ### Technical Improvements
-- Enhanced get_date_filter_params function to handle deployments API requirements
 - Improved error resilience by removing problematic project configurations
-- Better API compliance with GitLab v4 parameter validation
 
 ## [1.0.4] - 2025-07-09
 

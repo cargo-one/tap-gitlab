@@ -139,9 +139,10 @@ def get_date_filter_params(entity, state_key):
     filter_param = date_filtering.get(entity)
     if filter_param and STATE.get(state_key):
         params = {filter_param: STATE.get(state_key)}
-        # Deployments API requires sort parameter when using updated_after
+        # Deployments API requires order_by and sort parameters when using updated_after
         if entity == "deployments" and filter_param == "updated_after":
-            params['sort'] = 'updated_at'
+            params['order_by'] = 'updated_at'
+            params['sort'] = 'asc'
         return params
     else:
         return {}
@@ -622,7 +623,7 @@ def main_impl():
     
     # Check for version flag
     if len(sys.argv) > 1 and sys.argv[1] == '--version':
-        print("tap-gitlab version 1.0.5")
+        print("tap-gitlab version 1.0.6")
         print("Enhanced with code review metrics")
         return
 
@@ -642,7 +643,7 @@ def main_impl():
     logging.getLogger('google.auth').setLevel(logging.WARNING)
     
     # Log version at startup
-    LOGGER.info("Starting tap-gitlab v1.0.5 with code review metrics")
+    LOGGER.info("Starting tap-gitlab v1.0.6 with code review metrics")
     
     do_sync()
 
